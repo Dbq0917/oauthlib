@@ -121,3 +121,4 @@ class TokenEndpoint(BaseEndpoint):
             request,
             allowed_type='application/x-www-form-urlencoded',
         )
+        self._raise_on_duplicate_params(request)

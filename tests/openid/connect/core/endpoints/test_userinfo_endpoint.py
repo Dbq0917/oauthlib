@@ -65,3 +65,12 @@ class UserInfoEndpointTest(TestCase):
         self.assertEqual(s, 200)
         self.assertEqual(b, "eyJzzzzz")
         self.assertEqual("application/jwt", h['Content-Type'])
+
+    def test_userinfo_duplicate_params_rejected(self):
+        uri = self.uri + '?foo=bar&foo=baz'
+        with self.assertRaises(errors.InvalidRequestError) as ctx:
+            self.endpoint.create_userinfo_response(uri)
+        self.assertEqual(ctx.exception.error, 'invalid_request')
+        self.assertEqual(
+            ctx.exception.description, 'Duplicate foo parameter.')
+        self.validator.get_userinfo_claims.assert_not_called()

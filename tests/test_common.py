@@ -194,6 +194,22 @@ class RequestTest(TestCase):
         r = Request(URI, body=PARAMS_TWOTUPLE)
         self.assertCountEqual(r.decoded_body, PARAMS_TWOTUPLE)
 
+    def test_duplicate_params_in_twotuple_body(self):
+        # A parsed tuple-list body must not be collapsed through dict(),
+        # which would silently drop one of the repeated values.
+        body = [('foo', 'bar'), ('foo', 'baz')]
+        r = Request(URI, body=body)
+        self.assertEqual(r.decoded_body, body)
+        self.assertEqual(r.duplicate_params, ['foo'])
+
+    def test_duplicate_params_across_query_and_twotuple_body(self):
+        r = Request(URI + '?foo=query', body=[('foo', 'body'), ('bar', '1')])
+        self.assertEqual(r.duplicate_params, ['foo'])
+
+    def test_no_duplicate_params_twotuple_body(self):
+        r = Request(URI, body=PARAMS_TWOTUPLE)
+        self.assertEqual(r.duplicate_params, [])
+
     def test_dict_body(self):
         r = Request(URI, body=PARAMS_DICT)
         self.assertCountEqual(r.decoded_body, PARAMS_TWOTUPLE)

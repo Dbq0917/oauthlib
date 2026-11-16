@@ -37,6 +37,7 @@ class UserInfoEndpoint(BaseEndpoint):
         """
         request = Request(uri, http_method, body, headers)
         request.scopes = ["openid"]
+        self._raise_on_duplicate_params(request)
         self.validate_userinfo_request(request)
 
         claims = self.request_validator.get_userinfo_claims(request)

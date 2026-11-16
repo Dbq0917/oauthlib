@@ -138,37 +138,34 @@ class ErrorResponseTest(TestCase):
         self.validator.get_default_redirect_uri.return_value = 'https://i.b/cb'
         token_uri = 'https://i.b/token'
 
-        invalid_bodies = [
-            # duplicate params
-            'grant_type=authorization_code&client_id=nope&client_id=nope&code=foo'
+        # Duplicate parameters are rejected at the endpoint layer, before the
+        # request is dispatched to any grant type.
+        duplicate_bodies = [
+            (self.web, 'grant_type=authorization_code&client_id=nope&client_id=nope&code=foo',
+             'Duplicate client_id parameter.'),
+            (self.legacy, 'grant_type=password&username=foo&username=bar&password=baz',
+             'Duplicate username parameter.'),
+            (self.backend, 'grant_type=client_credentials&scope=foo&scope=bar',
+             'Duplicate scope parameter.'),
         ]
-        for body in invalid_bodies:
-            _, body, _ = self.web.create_token_response(token_uri,
-                    body=body)
-            self.assertEqual('invalid_request', json.loads(body)['error'])
+        for server, body, description in duplicate_bodies:
+            with self.assertRaises(errors.InvalidRequestError) as ctx:
+                server.create_token_response(token_uri, body=body)
+            self.assertEqual('invalid_request', ctx.exception.error)
+            self.assertEqual(description, ctx.exception.description)
+            # The error response must never echo the request (or its tokens).
+            self.assertNotIn(body, ctx.exception.json)
 
         # Password credentials grant
         invalid_bodies = [
-            # duplicate params
-            'grant_type=password&username=foo&username=bar&password=baz'
             # missing username
-            'grant_type=password&password=baz'
+            'grant_type=password&password=baz',
             # missing password
-            'grant_type=password&username=foo'
+            'grant_type=password&username=foo',
         ]
         self.validator.authenticate_client.side_effect = self.set_client
         for body in invalid_bodies:
             _, body, _ = self.legacy.create_token_response(token_uri,
-                    body=body)
-            self.assertEqual('invalid_request', json.loads(body)['error'])
-
-        # Client credentials grant
-        invalid_bodies = [
-            # duplicate params
-            'grant_type=client_credentials&scope=foo&scope=bar'
-        ]
-        for body in invalid_bodies:
-            _, body, _ = self.backend.create_token_response(token_uri,
                     body=body)
             self.assertEqual('invalid_request', json.loads(body)['error'])
 

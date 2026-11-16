@@ -467,6 +467,15 @@ class Request:
                  encoding='utf-8'):
         # Convert to unicode using encoding if given, else assume unicode
         def encode(x):
+            # A list of 2-tuples can carry repeated keys. to_unicode would
+            # funnel it through dict(), silently discarding every duplicate
+            # value before duplicate_params ever sees the request. Decode
+            # the elements instead and preserve the sequence as-is.
+            if (isinstance(x, (list, tuple))
+                    and all(isinstance(pair, (list, tuple)) and len(pair) == 2
+                            for pair in x)):
+                return [tuple(to_unicode(item, encoding) for item in pair)
+                        for pair in x]
             return to_unicode(x, encoding) if encoding else x
 
         self.uri = encode(uri)

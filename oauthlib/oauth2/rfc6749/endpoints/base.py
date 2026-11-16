@@ -9,7 +9,8 @@ import functools
 import logging
 
 from ..errors import (
-    FatalClientError, InvalidClientError, InvalidRequestError, OAuth2Error,
+    FatalClientError, InvalidClientError, InvalidRequestError,
+    InvalidRequestFatalError, OAuth2Error,
     ServerError, TemporarilyUnavailableError, UnsupportedTokenTypeError, UnsupportedContentTypeError,
 )
 
@@ -87,6 +88,56 @@ class BaseEndpoint:
             if query_params:
                 raise InvalidRequestError(request=request,
                                           description=('URL query parameters are not allowed'))
+
+    def _raise_on_duplicate_params(self, request):
+        """Raise if any request parameter is supplied more than once.
+
+        RFC 6749 Appendix B requires that request and response parameters
+        MUST NOT be included more than once. The check runs immediately after
+        the request body and query string are parsed (see
+        :class:`oauthlib.common.Request`), before any grant-specific logic,
+        so a request carrying two copies of a parameter can never reach
+        downstream validation with one copy silently discarded by dict
+        conversion.
+
+        Every parameter name is checked, regardless of whether the grant type
+        recognizes it: allowing unknown duplicates would keep the same
+        ambiguity for any parameter a later grant type starts using. The
+        raised error only names the duplicated parameter; the request itself
+        is never echoed into the response body.
+
+        :param request: OAuthlib request.
+        :type request: oauthlib.common.Request
+        """
+        try:
+            duplicate_params = request.duplicate_params
+        except ValueError:
+            raise InvalidRequestError(
+                description='Unable to parse request parameters.',
+                request=request)
+        if duplicate_params:
+            raise InvalidRequestError(
+                description='Duplicate %s parameter.' % duplicate_params[0],
+                request=request)
+
+    def _raise_on_fatal_duplicate_params(self, request):
+        """Duplicate-parameter check for authorization-endpoint requests.
+
+        Same check as :meth:`_raise_on_duplicate_params`, but raised as a
+        :class:`FatalClientError`: authorization errors must not be sent back
+        through a redirect whose ``redirect_uri`` cannot yet be trusted, so
+        the provider surfaces them to the resource owner directly.
+        """
+        try:
+            duplicate_params = request.duplicate_params
+        except ValueError:
+            raise InvalidRequestFatalError(
+                description='Unable to parse request parameters.',
+                request=request)
+        if duplicate_params:
+            raise InvalidRequestFatalError(
+                description='Duplicate %s parameter.' % duplicate_params[0],
+                request=request)
 
     def _raise_on_bad_content_type(self, request, allowed_type):
         """

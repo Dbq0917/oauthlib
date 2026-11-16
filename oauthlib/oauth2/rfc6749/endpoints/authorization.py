@@ -114,6 +114,7 @@ class AuthorizationEndpoint(BaseEndpoint):
         request.user = None     # TODO: explain this in docs
         for k, v in (credentials or {}).items():
             setattr(request, k, v)
+        self._raise_on_fatal_duplicate_params(request)
         self._canonicalize_response_type(request)
         response_type_handler = self.response_types.get(
             request.response_type, self.default_response_type_handler)
@@ -131,6 +132,7 @@ class AuthorizationEndpoint(BaseEndpoint):
 
         request.scopes = utils.scope_to_list(request.scope)
 
+        self._raise_on_fatal_duplicate_params(request)
         self._canonicalize_response_type(request)
         response_type_handler = self.response_types.get(
             request.response_type, self.default_response_type_handler)

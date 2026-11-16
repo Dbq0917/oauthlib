@@ -4,6 +4,17 @@ Changelog
 Unreleased:
 ------------------
 OAuth2.0 Provider:
+* Duplicate request parameters are now rejected in one centralized check on
+  ``BaseEndpoint``, invoked immediately after request parsing by every OAuth
+  2 server endpoint (token, authorization, revocation, introspection, device
+  authorization, protected resource, and OIDC userinfo). Repeated parameters
+  are rejected with the existing ``invalid_request`` error (HTTP 400; the
+  fatal variant on authorization and device authorization endpoints) and the
+  response only names the duplicated parameter, never echoing request or
+  token values. The previous per-grant whitelist checks were removed; the
+  refresh token grant, which previously had no check, is now covered.
+  ``Request`` also preserves repeated keys when the body is supplied as a
+  list of 2-tuples instead of collapsing them through ``dict()``.
 * **Breaking**: #988: PKCE parameters are now validated against RFC 7636
   syntax. ``code_verifier`` must be 43-128 unreserved ASCII characters
   (``[A-Za-z0-9-._~]``) at the token endpoint (rejected with ``invalid_grant``)
